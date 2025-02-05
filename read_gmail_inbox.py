@@ -1,18 +1,18 @@
 import os.path
 import base64
 import email
+import json
+from bs4 import BeautifulSoup
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from bs4 import BeautifulSoup
-import json
 
 with open('readWhitelist.json', 'r') as file:
     data = json.load(file)
 
-valuedSenders = data["senders"]
+senderWhitelist = data["senders"]
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
@@ -32,6 +32,7 @@ def main():
     # time.
     if os.path.exists("token.json"):
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -41,24 +42,25 @@ def main():
                 "credentials.json", SCOPES
             )
             creds = flow.run_local_server(port=0)
-            # Save the credentials for the next run
+        
+        # Save the credentials for the next run
         with open("token.json", "w") as token:
             token.write(creds.to_json())
 
     # Call the Gmail API
     service = build("gmail", "v1", credentials=creds)
 
-    if len(valuedSenders) == 0:
+    if len(senderWhitelist) == 0:
         # json empty
         return 0
 
-    for wSender in valuedSenders:
+    for wSender in senderWhitelist:
         result = service.users().messages().list(userId="me",labelIds=['INBOX'], q="is:unread from:"+wSender).execute()
         messages = result.get('messages')
 
         if messages is None or len(messages) == 0:
-           # no unread messages
-           return 0
+            # no unread messages
+            return 0
 
         for msg in messages:
         # Get the message from its id
@@ -102,4 +104,4 @@ def main():
                 pass
 
 if __name__ == "__main__":
-  main()
+    main()

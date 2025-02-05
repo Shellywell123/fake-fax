@@ -1,4 +1,4 @@
-# fake fax
+# Fake-Fax
 
 ```
 MM""""""""`M          dP                         MM""""""""`M                   
@@ -10,26 +10,27 @@ MM  MMMMMMMM `88888P8 dP   `YP `88888P'          MM  MMMMMMMM `88888P8 dP'  `dP
 MMMMMMMMMMMM                                     MMMMMMMMMMMM           
 ```
 ![](./fake-fax.png)
-Silly idea to print incoming emails on a recept printe because why not.
 
+A silly idea to print incoming emails on a receipt printer to mimic a fax because why not.
+Using the gmail api we can check unread emails from specific senders and then print those.
 # Setup
 
-- enable gmail api
-- create google creds json named `token.json`
-- pip install requirements
-- install cups
+1. enable gmail api
+2. create google creds json named `token.json`
+3. pip install requirements
+4. install cups
 ```
-		sudo apt install cups
+sudo apt install cups
 ```
-- [Install Drivers](https://cosroe.com/2024/05/star-tsp-100.html)
-- set gmail sender whitlist
+5. [Install Drivers](https://cosroe.com/2024/05/star-tsp-100.html)
+6. set gmail sender whitelist (who's emails to print)
 ```
 echo '{"senders": "some@email.com"]}' > readWhitelist.json
 ```
 
-# running
+# Running
 
-manually
+Manually:
 ```
 sh fax.sh
 ```
