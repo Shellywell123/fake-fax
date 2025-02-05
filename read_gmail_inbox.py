@@ -8,6 +8,19 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from datetime import datetime
+
+
+
+splash = """
+MM""""""""`M          dP                         MM""""""""`M
+MM  mmmmmmmM          88                         MM  mmmmmmmM
+M'      MMMM .d8888b. 88  .dP  .d8888b.          M'      MMMM .d8888b. dP.  .dP
+MM  MMMMMMMM 88'  `88 88888"   88ooood8 88888888 MM  MMMMMMMM 88'  `88  `8bd8'
+MM  MMMMMMMM 88.  .88 88  `8b. 88.  ...          MM  MMMMMMMM 88.  .88  .d88b.
+MM  MMMMMMMM `88888P8 dP   `YP `88888P'          MM  MMMMMMMM `88888P8 dP'  `dP
+MMMMMMMMMMMM                                     MMMMMMMMMMMM
+"""
 
 with open('sender_whitelist.json', 'r') as file:
     data = json.load(file)
@@ -22,10 +35,19 @@ def parse_msg(msg):
         return base64.urlsafe_b64decode(msg.get("payload").get("body").get("data").encode("ASCII")).decode("utf-8")
     return msg.get("snippet")
 
+def actually_print(msg, cpi, lpi, cut): 
+    cutFlag = ""
+    if cut:
+        cutFlag = " -o DocCutType=0NoCutDoc"
+    os.System("echo -e '" + msg + "' | lpr" + " -o cpi=" + cpi + " -o lpi=" + lpi + cutFlag)
+
 def main():
     """Shows basic usage of the Gmail API.
     Lists the user's Gmail labels.
     """
+
+    toPrint = ""
+
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -97,10 +119,15 @@ def main():
                 body = soup.body()
 
                 # Printing the subject, sender's email and message
-                print("Subject: ", subject)
-                print("From: ", sender)
-                print("Message: ", body) #TODO can we reformat?
-                print('\n')
+
+                toPrint += "Subject: " + subject + "\n"
+                toPrint += "From: " + sender + "\n"
+                toPrint += "Message: " + body + "\n\n"
+
+                # print("Subject: ", subject)
+                # print("From: ", sender)
+                # print("Message: ", body) #TODO can we reformat?
+                # print('\n')
 
                 # mark printed emails as read
                 service.users().messages().modify(userId="me", id=msg['id'], body={ 'removeLabelIds': ['UNREAD']}).execute()
@@ -108,6 +135,17 @@ def main():
             except Exception as e:
                 print("Error", e)
                 pass
+            
+    if len(toPrint) > 0:
+
+        print(splash,10,10,False)
+        print("Faxing at: ", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        
+        actually_print(splash ,10,10,False)
+        actually_print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'),1,1,False)
+        actually_print(toPrint,3,3,True)
+
+        print("Done faxing.")
 
 if __name__ == "__main__":
     main()
