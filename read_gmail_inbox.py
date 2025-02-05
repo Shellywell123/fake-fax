@@ -15,7 +15,7 @@ with open('readWhitelist.json', 'r') as file:
 senderWhitelist = data["senders"]
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
 def parse_msg(msg):
     if msg.get("payload").get("body").get("data"):
@@ -97,7 +97,8 @@ def main():
                 print("Message: ", body) #TODO can we reformat?
                 print('\n')
 
-                # TODO can we mark printed emails as read?
+                # mark printed emails as read
+                service.users().messages().modify(userId="me", id=msg['id'], body={ 'removeLabelIds': ['UNREAD']}).execute() 
 
             except Exception as e:
                 print("Error", e)
