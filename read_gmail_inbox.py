@@ -81,7 +81,7 @@ def main():
 
                 # The Body of the message is in Encrypted format. So, we have to decode it.
                 # Get the data and decode it with base 64 decoder.
-                
+
                 try:
                     parts = payload.get('parts')[0]
                     data = parts['body']['data']
@@ -103,7 +103,7 @@ def main():
                 print('\n')
 
                 # mark printed emails as read
-                # service.users().messages().modify(userId="me", id=msg['id'], body={ 'removeLabelIds': ['UNREAD']}).execute() 
+                service.users().messages().modify(userId="me", id=msg['id'], body={ 'removeLabelIds': ['UNREAD']}).execute()
 
             except Exception as e:
                 print("Error", e)
