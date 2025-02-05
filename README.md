@@ -25,7 +25,7 @@ sudo apt install cups
 5. [Install Drivers](https://cosroe.com/2024/05/star-tsp-100.html)
 6. set gmail sender whitelist (who's emails to print)
 ```
-echo '{"senders": ["some@email.com"]}' > readWhitelist.json
+echo '{"senders": ["some@email.com"]}' > sender_whitelist.json
 ```
 
 # Running

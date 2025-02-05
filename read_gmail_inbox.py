@@ -9,7 +9,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-with open('readWhitelist.json', 'r') as file:
+with open('sender_whitelist.json', 'r') as file:
     data = json.load(file)
 
 senderWhitelist = data["senders"]
@@ -66,7 +66,7 @@ def main():
         # Get the message from its id
 
             txt = service.users().messages().get(userId='me', id=msg['id'],).execute()
-                # Use try-except to avoid any Errors
+            # Use try-except to avoid any Errors
             try:
                 # Get value of 'payload' from dictionary 'txt'
                 payload = txt['payload']
@@ -81,8 +81,13 @@ def main():
 
                 # The Body of the message is in Encrypted format. So, we have to decode it.
                 # Get the data and decode it with base 64 decoder.
-                parts = payload.get('parts')[0]
-                data = parts['body']['data']
+                
+                try:
+                    parts = payload.get('parts')[0]
+                    data = parts['body']['data']
+                except:
+                    data = payload['body']['data']
+
                 data = data.replace("-","+").replace("_","/")
                 decoded_data = base64.b64decode(data)
 
@@ -98,7 +103,7 @@ def main():
                 print('\n')
 
                 # mark printed emails as read
-                service.users().messages().modify(userId="me", id=msg['id'], body={ 'removeLabelIds': ['UNREAD']}).execute() 
+                # service.users().messages().modify(userId="me", id=msg['id'], body={ 'removeLabelIds': ['UNREAD']}).execute() 
 
             except Exception as e:
                 print("Error", e)
