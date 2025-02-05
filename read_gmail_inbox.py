@@ -1,3 +1,4 @@
+import os
 import os.path
 import base64
 import email
@@ -10,9 +11,8 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from datetime import datetime
 
-
-
-splash = """
+# TODO print this nicely
+splash = '''
 MM""""""""`M          dP                         MM""""""""`M
 MM  mmmmmmmM          88                         MM  mmmmmmmM
 M'      MMMM .d8888b. 88  .dP  .d8888b.          M'      MMMM .d8888b. dP.  .dP
@@ -20,7 +20,7 @@ MM  MMMMMMMM 88'  `88 88888"   88ooood8 88888888 MM  MMMMMMMM 88'  `88  `8bd8'
 MM  MMMMMMMM 88.  .88 88  `8b. 88.  ...          MM  MMMMMMMM 88.  .88  .d88b.
 MM  MMMMMMMM `88888P8 dP   `YP `88888P'          MM  MMMMMMMM `88888P8 dP'  `dP
 MMMMMMMMMMMM                                     MMMMMMMMMMMM
-"""
+'''
 
 with open('sender_whitelist.json', 'r') as file:
     data = json.load(file)
@@ -36,10 +36,12 @@ def parse_msg(msg):
     return msg.get("snippet")
 
 def actually_print(msg, cpi, lpi, cut): 
-    cutFlag = ""
+    cutFlag = " -o DocCutType=0NoCutDoc"
     if cut:
-        cutFlag = " -o DocCutType=0NoCutDoc"
-    os.System("echo -e '" + msg + "' | lpr" + " -o cpi=" + cpi + " -o lpi=" + lpi + cutFlag)
+        cutFlag = ""
+    cstr = "echo '" + msg + "' | lpr" + " -o cpi=" + str(cpi) + " -o lpi=" + str(lpi) + cutFlag
+    # print("cstr:", cstr)
+    os.system(cstr)
 
 def main():
     """Shows basic usage of the Gmail API.
@@ -120,9 +122,9 @@ def main():
 
                 # Printing the subject, sender's email and message
 
-                toPrint += "Subject: " + subject + "\n"
-                toPrint += "From: " + sender + "\n"
-                toPrint += "Message: " + body + "\n\n"
+                toPrint += "Subject: " + str(subject) + "\n"
+                toPrint += "From: " + str(sender).split('<')[0] + "\n"
+                toPrint += "Message: " + str(body) + "\n\n"
 
                 # print("Subject: ", subject)
                 # print("From: ", sender)
@@ -135,17 +137,20 @@ def main():
             except Exception as e:
                 print("Error", e)
                 pass
-            
-    if len(toPrint) > 0:
 
-        print(splash,10,10,False)
-        print("Faxing at: ", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-        
-        actually_print(splash ,10,10,False)
-        actually_print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'),1,1,False)
-        actually_print(toPrint,3,3,True)
+    print(splash)
+    print("Checking for faxing at: ", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+    if len(toPrint) >0:
+        #for line in splash.split('\n'):
+        #    actually_print(line,                                    10, 10, False)
+        os.system("cat splash.md | lp -o cpi=10 -o lpi=10 -o DocCutType=0NoCutDoc")
+        actually_print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'),3 , 3 , False)
+        actually_print(toPrint                                     ,3 , 3 , True)
 
         print("Done faxing.")
+    else:
+        print("No faxes at this time.")
 
 if __name__ == "__main__":
     main()
