@@ -42,7 +42,7 @@ def main():
                 "credentials.json", SCOPES
             )
             creds = flow.run_local_server(port=0)
-        
+
         # Save the credentials for the next run
         with open("token.json", "w") as token:
             token.write(creds.to_json())
@@ -60,7 +60,7 @@ def main():
 
         if messages is None or len(messages) == 0:
             # no unread messages
-            return 0
+            continue
 
         for msg in messages:
         # Get the message from its id
