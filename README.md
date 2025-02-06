@@ -32,6 +32,6 @@ echo '{"senders": ["some@email.com"]}' > sender_whitelist.json
 
 Manually:
 ```
-sh fax.sh
+python3 fake-fax.py
 ```
 or setup a cron

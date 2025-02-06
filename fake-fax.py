@@ -11,7 +11,6 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from datetime import datetime
 
-# TODO print this nicely
 splash = '''
 MM""""""""`M          dP                         MM""""""""`M
 MM  mmmmmmmM          88                         MM  mmmmmmmM
@@ -22,11 +21,6 @@ MM  MMMMMMMM `88888P8 dP   `YP `88888P'          MM  MMMMMMMM `88888P8 dP'  `dP
 MMMMMMMMMMMM                                     MMMMMMMMMMMM
 '''
 
-with open('sender_whitelist.json', 'r') as file:
-    data = json.load(file)
-
-senderWhitelist = data["senders"]
-
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
@@ -35,7 +29,7 @@ def parse_msg(msg):
         return base64.urlsafe_b64decode(msg.get("payload").get("body").get("data").encode("ASCII")).decode("utf-8")
     return msg.get("snippet")
 
-def actually_print(msg, cpi, lpi, cut): 
+def actually_print(msg, cpi, lpi, cut):
     cutFlag = " -o DocCutType=0NoCutDoc"
     if cut:
         cutFlag = ""
@@ -43,12 +37,71 @@ def actually_print(msg, cpi, lpi, cut):
     # print("cstr:", cstr)
     os.system(cstr)
 
+def print_message(txt, toPrint):
+    # Get value of 'payload' from dictionary 'txt'
+    payload = txt['payload']
+    headers = payload['headers']
+
+    # Look for Subject and Sender Email in the headers
+    for d in headers:
+        if d['name'] == 'Subject':
+            subject = d['value']
+        if d['name'] == 'From':
+            sender = d['value']
+
+    # The Body of the message is in Encrypted format. So, we have to decode it.
+    # Get the data and decode it with base 64 decoder.
+    # TODO better switch case handling
+    mimeType = payload['mimeType']
+
+    if mimeType == "multipart/alternative":
+        parts = payload.get('parts')[0]
+        data = parts['body']['data']
+
+    elif mimeType == "multipart/signed":
+        parts = payload.get('parts')[0]
+        data = parts['body']['data']
+
+    elif mimeType == "text/plain":
+        data = payload['body']['data']
+
+    else:
+        print("mimeType not seen before: ", mimeType)
+
+    data = data.replace("-","+").replace("_","/")
+    decoded_data = base64.b64decode(data)
+
+    # Now, the data obtained is in lxml. So, we will parse
+    # it with BeautifulSoup library
+    soup = BeautifulSoup(decoded_data , "lxml")
+    body = str(soup.body())
+    body = body.replace("'","`") # this is to prevent ' escaping the print command
+    # Printing the subject, sender's email and message
+
+    subject_str = "Subject: " + str(subject) + "\n"
+    sender_str  = "From: "    + str(sender).split('<')[0] + "\n"
+    body_str    = "Message: " + str(body) + "\n\n"
+
+    print(subject_str)
+    toPrint += subject_str
+    print(sender_str)
+    toPrint += sender_str
+    print(body_str)
+    toPrint += body_str
+
+    return toPrint
+
+def import_whitelist():
+    with open('sender_whitelist.json', 'r') as file:
+        data = json.load(file)
+    return data["senders"]
+
 def main():
-    """Shows basic usage of the Gmail API.
+    """
+    Shows basic usage of the Gmail API.
     Lists the user's Gmail labels.
     """
-
-    toPrint = ""
+    fax = ""
 
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
@@ -74,9 +127,14 @@ def main():
     # Call the Gmail API
     service = build("gmail", "v1", credentials=creds)
 
+    senderWhitelist = import_whitelist()
+
     if len(senderWhitelist) == 0:
         # json empty
         return 0
+
+    print(splash)
+    print("Checking for faxing at: ", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
     for wSender in senderWhitelist:
         result = service.users().messages().list(userId="me",labelIds=['INBOX'], q="is:unread from:"+wSender).execute()
@@ -87,59 +145,12 @@ def main():
             continue
 
         for msg in messages:
-        # Get the message from its id
-
+            # Get the message from its id
             txt = service.users().messages().get(userId='me', id=msg['id'],).execute()
-            # Use try-except to avoid any Errors
+
             try:
-                # Get value of 'payload' from dictionary 'txt'
-                payload = txt['payload']
-                headers = payload['headers']
-
-                # Look for Subject and Sender Email in the headers
-                for d in headers:
-                    if d['name'] == 'Subject':
-                        subject = d['value']
-                    if d['name'] == 'From':
-                        sender = d['value']
-
-                # The Body of the message is in Encrypted format. So, we have to decode it.
-                # Get the data and decode it with base 64 decoder.
-                # TODO better switch case handling
-                mimeType = payload['mimeType']
-
-                if mimeType == "multipart/alternative":
-                    parts = payload.get('parts')[0]
-                    data = parts['body']['data']
-
-                elif mimeType == "multipart/signed":
-                    parts = payload.get('parts')[0]
-                    data = parts['body']['data']
-
-                elif mimeType == "text/plain":
-                    data = payload['body']['data']
-
-                else:
-                    print("mimeType not seen before: ", mimeType)
-
-                data = data.replace("-","+").replace("_","/")
-                decoded_data = base64.b64decode(data)
-
-                # Now, the data obtained is in lxml. So, we will parse
-                # it with BeautifulSoup library
-                soup = BeautifulSoup(decoded_data , "lxml")
-                body = str(soup.body())
-                body = body.replace("'","`") # this is to prevent ' escaping the print command
-                # Printing the subject, sender's email and message
-
-                toPrint += "Subject: " + str(subject) + "\n"
-                toPrint += "From: " + str(sender).split('<')[0] + "\n"
-                toPrint += "Message: " + str(body) + "\n\n"
-
-                # print("Subject: ", subject)
-                # print("From: ", sender)
-                # print("Message: ", body) #TODO can we reformat?
-                # print('\n')
+                # convert to fax
+                fax += print_message(txt, fax)
 
                 # mark printed emails as read
                 service.users().messages().modify(userId="me", id=msg['id'], body={ 'removeLabelIds': ['UNREAD']}).execute()
@@ -148,16 +159,12 @@ def main():
                 print("Error", e)
                 pass
 
-    print(splash)
-    print("Checking for faxing at: ", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-
-    if len(toPrint) > 0:
-        #for line in splash.split('\n'):
-        #    actually_print(line,                                    10, 10, False)
-        os.system("cat splash.md | lp -o cpi=10 -o lpi=10 -o DocCutType=0NoCutDoc")
-        actually_print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'),3 , 3 , False)
-        actually_print(toPrint                                     ,3 , 3 , True)
-
+    if len(fax) > 0:
+        print("Faxes found!")
+        for line in splash.split('\n'):
+            actually_print(line.replace("'","`")                   , 10, 10, False)
+        actually_print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 3 , 3 , False)
+        actually_print(fax                                         , 3 , 3 , True )
         print("Done faxing.")
     else:
         print("No faxes at this time.")
