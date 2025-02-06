@@ -34,10 +34,9 @@ def actually_print(msg, cpi, lpi, cut):
     if cut:
         cutFlag = ""
     cstr = "echo '" + msg + "' | lpr" + " -o cpi=" + str(cpi) + " -o lpi=" + str(lpi) + cutFlag
-    # print("cstr:", cstr)
     os.system(cstr)
 
-def print_message(txt, toPrint):
+def email_to_fax(txt):
     # Get value of 'payload' from dictionary 'txt'
     payload = txt['payload']
     headers = payload['headers']
@@ -82,14 +81,7 @@ def print_message(txt, toPrint):
     sender_str  = "From: "    + str(sender).split('<')[0] + "\n"
     body_str    = "Message: " + str(body) + "\n\n"
 
-    print(subject_str)
-    toPrint += subject_str
-    print(sender_str)
-    toPrint += sender_str
-    print(body_str)
-    toPrint += body_str
-
-    return toPrint
+    return subject_str + sender_str + body_str
 
 def import_whitelist():
     with open('sender_whitelist.json', 'r') as file:
@@ -101,7 +93,6 @@ def main():
     Shows basic usage of the Gmail API.
     Lists the user's Gmail labels.
     """
-    fax = ""
 
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
@@ -136,6 +127,8 @@ def main():
     print(splash)
     print("Checking for faxing at: ", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
+    faxes = []
+
     for wSender in senderWhitelist:
         result = service.users().messages().list(userId="me",labelIds=['INBOX'], q="is:unread from:"+wSender).execute()
         messages = result.get('messages')
@@ -146,26 +139,34 @@ def main():
 
         for msg in messages:
             # Get the message from its id
-            txt = service.users().messages().get(userId='me', id=msg['id'],).execute()
+            email = service.users().messages().get(userId='me', id=msg['id'],).execute()
 
             try:
                 # convert to fax
-                fax += print_message(txt, fax)
+                fax = email_to_fax(email)
+                faxes.append(fax)
 
-                # mark printed emails as read
+                # mark converted emails as read
                 service.users().messages().modify(userId="me", id=msg['id'], body={ 'removeLabelIds': ['UNREAD']}).execute()
 
             except Exception as e:
                 print("Error", e)
                 pass
 
-    if len(fax) > 0:
-        print("Faxes found!")
+    if len(faxes) > 0:
+        print("Found " + str(len(faxes)) + " Faxes!")
+
         for line in splash.split('\n'):
-            actually_print(line.replace("'","`")                   , 10, 10, False)
+            actually_print(line.replace("'","`"), 10, 10, False)
+
         actually_print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 3 , 3 , False)
-        actually_print(fax                                         , 3 , 3 , True )
+
+        for fax in faxes:
+             print(fax)
+             actually_print(fax, 3 , 3 , True )
+
         print("Done faxing.")
+
     else:
         print("No faxes at this time.")
 
