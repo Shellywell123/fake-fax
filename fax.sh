@@ -1,3 +1,3 @@
 #!/bin/bash
-python3 read_gmail_inbox.py
+python3 fake-fax.py
 

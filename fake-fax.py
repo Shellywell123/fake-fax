@@ -105,12 +105,22 @@ def main():
 
                 # The Body of the message is in Encrypted format. So, we have to decode it.
                 # Get the data and decode it with base 64 decoder.
+                # TODO better switch case handling
+                mimeType = payload['mimeType']
 
-                try:
+                if mimeType == "multipart/alternative":
                     parts = payload.get('parts')[0]
                     data = parts['body']['data']
-                except:
+
+                elif mimeType == "multipart/signed":
+                    parts = payload.get('parts')[0]
+                    data = parts['body']['data']
+
+                elif mimeType == "text/plain":
                     data = payload['body']['data']
+
+                else:
+                    print("mimeType not seen before: ", mimeType)
 
                 data = data.replace("-","+").replace("_","/")
                 decoded_data = base64.b64decode(data)
@@ -118,8 +128,8 @@ def main():
                 # Now, the data obtained is in lxml. So, we will parse
                 # it with BeautifulSoup library
                 soup = BeautifulSoup(decoded_data , "lxml")
-                body = soup.body()
-
+                body = str(soup.body())
+                body = body.replace("'","`") # this is to prevent ' escaping the print command
                 # Printing the subject, sender's email and message
 
                 toPrint += "Subject: " + str(subject) + "\n"
@@ -141,7 +151,7 @@ def main():
     print(splash)
     print("Checking for faxing at: ", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-    if len(toPrint) >0:
+    if len(toPrint) > 0:
         #for line in splash.split('\n'):
         #    actually_print(line,                                    10, 10, False)
         os.system("cat splash.md | lp -o cpi=10 -o lpi=10 -o DocCutType=0NoCutDoc")
