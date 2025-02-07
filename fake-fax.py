@@ -24,17 +24,26 @@ MMMMMMMMMMMM                                     MMMMMMMMMMMM
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
-def parse_msg(msg):
-    if msg.get("payload").get("body").get("data"):
-        return base64.urlsafe_b64decode(msg.get("payload").get("body").get("data").encode("ASCII")).decode("utf-8")
-    return msg.get("snippet")
+def actually_print_fax(fax):
+    # TODO extract img attatchments from faxes to also print
+    actually_print_text(fax, 3, 3)
 
-def actually_print(msg, cpi, lpi, cut):
-    cutFlag = " -o DocCutType=0NoCutDoc"
-    if cut:
-        cutFlag = ""
-    cstr = "echo '" + msg + "' | lpr" + " -o cpi=" + str(cpi) + " -o lpi=" + str(lpi) + cutFlag
+def actually_print_text(msg, cpi, lpi):
+    cstr = "echo '" + msg + "' | lpr" + " -o cpi=" + str(cpi) + " -o lpi=" + str(lpi) + " -o DocCutType=0NoCutDoc"
     os.system(cstr)
+
+def actually_print_image(img):
+    cstr = "lp -o fit-to-page -o DocCutType=0NoCutDoc " + path_to_img
+    os.system(cstr)
+
+def actually_cut():
+    cstr = 'echo "" | lpr'
+    os.system(cstr)
+
+def import_whitelist():
+    with open('sender_whitelist.json', 'r') as file:
+        data = json.load(file)
+    return data["senders"]
 
 def email_to_fax(txt):
     # Get value of 'payload' from dictionary 'txt'
@@ -50,7 +59,7 @@ def email_to_fax(txt):
 
     # The Body of the message is in Encrypted format. So, we have to decode it.
     # Get the data and decode it with base 64 decoder.
-    # TODO better switch case handling
+    # TODO better mimeType handling
     mimeType = payload['mimeType']
 
     if mimeType == "multipart/alternative":
@@ -82,11 +91,6 @@ def email_to_fax(txt):
     body_str    = "Message: " + str(body) + "\n\n"
 
     return subject_str + sender_str + body_str
-
-def import_whitelist():
-    with open('sender_whitelist.json', 'r') as file:
-        data = json.load(file)
-    return data["senders"]
 
 def main():
     """
@@ -157,14 +161,15 @@ def main():
         print("Found " + str(len(faxes)) + " Faxes!")
 
         for line in splash.split('\n'):
-            actually_print(line.replace("'","`"), 10, 10, False)
+            actually_print_text(line.replace("'","`"), 10, 10)
 
-        actually_print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 3 , 3 , False)
+        actually_print_text(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 3 , 3)
 
         for fax in faxes:
              print(fax)
-             actually_print(fax, 3 , 3 , True )
+             actually_print_fax(fax)
 
+        actually_cut()
         print("Done faxing.")
 
     else:
