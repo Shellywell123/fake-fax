@@ -4,12 +4,13 @@ import base64
 import email
 import json
 from bs4 import BeautifulSoup
+from datetime import datetime
+from pprint import pprint
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from datetime import datetime
 
 splash = '''
 MM""""""""`M          dP                         MM""""""""`M
@@ -24,10 +25,6 @@ MMMMMMMMMMMM                                     MMMMMMMMMMMM
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
-def actually_print_fax(fax):
-    # TODO extract img attatchments from faxes to also print
-    actually_print_text(fax, 3, 3)
-
 def actually_print_text(msg, cpi, lpi):
     cstr = "echo '" + msg + "' | lpr" + " -o cpi=" + str(cpi) + " -o lpi=" + str(lpi) + " -o DocCutType=0NoCutDoc"
     os.system(cstr)
@@ -40,10 +37,46 @@ def actually_cut():
     cstr = 'echo "" | lpr'
     os.system(cstr)
 
+def actually_print_fax(fax):
+    actually_print_text(fax["subject"] + "\n", 3, 3)
+    actually_print_text(fax["sender"]  + "\n", 3, 3)
+    actually_print_text(fax["message"] + "\n", 3, 3)
+
+    if len (fax["attachments"]) == 0:
+        # no attachments
+        return 0
+
+    actually_print_text("Attachments :\n", 3, 3)
+    for attachment in fax["attachments"]:
+        if attachment["id"]: # use the existence of a stored attachment id to denote images
+            # todo download locally and print image then delete
+            #actually_print_image(fax["attachments"])
+            print("todo print picture here")
+        else:
+            actually_print_text(fax["attachments"]["filename"])
+
 def import_whitelist():
     with open('sender_whitelist.json', 'r') as file:
         data = json.load(file)
     return data["senders"]
+
+def process_email_part(payload, messages, attachments):
+    main_type, sub_type = payload['mimeType'].split('/')
+    if main_type == "multipart":
+        parts = payload.get('parts')
+        for part in parts:
+            messages, attachments = process_email_part(part, messages, attachments)
+
+    elif main_type == "text":
+        messages.append(payload['body']['data'])
+
+    elif main_type == "image":
+        attachments.append({"filename": payload["filename"], "id" : payload['body']['attachmentId']})
+
+    else:
+        print("unkown mimetype: ", main_type)
+
+    return messages, attachments
 
 def email_to_fax(txt):
     # Get value of 'payload' from dictionary 'txt'
@@ -59,38 +92,29 @@ def email_to_fax(txt):
 
     # The Body of the message is in Encrypted format. So, we have to decode it.
     # Get the data and decode it with base 64 decoder.
-    # TODO better mimeType handling
-    mimeType = payload['mimeType']
 
-    if mimeType == "multipart/alternative":
-        parts = payload.get('parts')[0]
-        data = parts['body']['data']
+    messages, attachments = process_email_part(payload, [], [])
 
-    elif mimeType == "multipart/signed":
-        parts = payload.get('parts')[0]
-        data = parts['body']['data']
+    message = ""
 
-    elif mimeType == "text/plain":
-        data = payload['body']['data']
+    for data in messages:
+        data = data.replace("-", "+").replace("_", "/")
+        decoded_data = base64.b64decode(data)
 
-    else:
-        print("mimeType not seen before: ", mimeType)
+        # Now, the data obtained is in lxml. So, we will parse
+        # it with BeautifulSoup library
+        soup = BeautifulSoup(decoded_data, "lxml")
+        body = str(soup.body())
+        body = body.replace("'", "`") # this is to prevent ' escaping the print command
+        message += body
 
-    data = data.replace("-","+").replace("_","/")
-    decoded_data = base64.b64decode(data)
-
-    # Now, the data obtained is in lxml. So, we will parse
-    # it with BeautifulSoup library
-    soup = BeautifulSoup(decoded_data , "lxml")
-    body = str(soup.body())
-    body = body.replace("'","`") # this is to prevent ' escaping the print command
-    # Printing the subject, sender's email and message
-
-    subject_str = "Subject: " + str(subject) + "\n"
-    sender_str  = "From: "    + str(sender).split('<')[0] + "\n"
-    body_str    = "Message: " + str(body) + "\n\n"
-
-    return subject_str + sender_str + body_str
+    fax = { 
+        "subject"     : str(subject),
+        "sender"      : str(str(sender).split(' <')[0]),
+        "message"     : message,
+        "attachments" : attachments
+    }
+    return fax
 
 def main():
     """
@@ -125,7 +149,7 @@ def main():
     senderWhitelist = import_whitelist()
 
     if len(senderWhitelist) == 0:
-        # json empty
+        print("sender_whitlist.json is empty")
         return 0
 
     print(splash)
@@ -147,8 +171,7 @@ def main():
 
             try:
                 # convert to fax
-                fax = email_to_fax(email)
-                faxes.append(fax)
+                faxes.append(email_to_fax(email))
 
                 # mark converted emails as read
                 service.users().messages().modify(userId="me", id=msg['id'], body={ 'removeLabelIds': ['UNREAD']}).execute()
@@ -166,7 +189,7 @@ def main():
         actually_print_text(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 3 , 3)
 
         for fax in faxes:
-             print(fax)
+             pprint(fax)
              actually_print_fax(fax)
 
         actually_cut()
