@@ -29,7 +29,7 @@ def actually_print_text(msg, cpi, lpi):
     cstr = "echo '" + msg + "' | lpr" + " -o cpi=" + str(cpi) + " -o lpi=" + str(lpi) + " -o DocCutType=0NoCutDoc"
     os.system(cstr)
 
-def actually_print_image(img):
+def actually_print_image(path_to_img):
     cstr = "lp -o fit-to-page -o DocCutType=0NoCutDoc " + path_to_img
     os.system(cstr)
 
@@ -48,38 +48,42 @@ def actually_print_fax(fax):
 
     actually_print_text("Attachments :\n", 3, 3)
     for attachment in fax["attachments"]:
-        if attachment["id"]: # use the existence of a stored attachment id to denote images
-            # todo download locally and print image then delete
-            #actually_print_image(fax["attachments"])
-            print("todo print picture here")
-        else:
-            actually_print_text(fax["attachments"]["filename"])
+        if attachment["type"] == "image":
+            actually_print_image(attachment["filename"])
+            # todo delete attachment
 
 def import_whitelist():
     with open('sender_whitelist.json', 'r') as file:
         data = json.load(file)
     return data["senders"]
 
-def process_email_part(payload, messages, attachments):
+def process_email_part(payload, messages, attachments, service, msg_id):
     main_type, sub_type = payload['mimeType'].split('/')
     if main_type == "multipart":
         parts = payload.get('parts')
         for part in parts:
-            messages, attachments = process_email_part(part, messages, attachments)
+            messages, attachments = process_email_part(part, messages, attachments, service, msg_id)
 
     elif main_type == "text":
         messages.append(payload['body']['data'])
 
     elif main_type == "image":
-        attachments.append({"filename": payload["filename"], "id" : payload['body']['attachmentId']})
+        att = service.users().messages().attachments().get(userId="me", messageId=msg_id, id=payload['body']['attachmentId']).execute()
+        image_data = att['data']
+        decoded_image_data = base64.urlsafe_b64decode(image_data.encode('UTF-8'))
+        path = ''.join(["attachments/", payload['filename']])
+        with open(path, 'wb') as f:
+           f.write(decoded_image_data)
+           f.close()
 
+        attachments.append({"filename": path, "type" : main_type })
     else:
         print("unkown mimetype: ", main_type)
+        attachments.append({"filename": payload["filename"], "type" : main_type })
 
     return messages, attachments
 
-def email_to_fax(txt):
-    # Get value of 'payload' from dictionary 'txt'
+def email_to_fax(txt, service, msg_id):
     payload = txt['payload']
     headers = payload['headers']
 
@@ -93,7 +97,7 @@ def email_to_fax(txt):
     # The Body of the message is in Encrypted format. So, we have to decode it.
     # Get the data and decode it with base 64 decoder.
 
-    messages, attachments = process_email_part(payload, [], [])
+    messages, attachments = process_email_part(payload, [], [], service, msg_id)
 
     message = ""
 
@@ -122,6 +126,7 @@ def main():
     Lists the user's Gmail labels.
     """
 
+    # todo break out into a gmail auth func
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -171,7 +176,7 @@ def main():
 
             try:
                 # convert to fax
-                faxes.append(email_to_fax(email))
+                faxes.append(email_to_fax(email, service, msg))
 
                 # mark converted emails as read
                 service.users().messages().modify(userId="me", id=msg['id'], body={ 'removeLabelIds': ['UNREAD']}).execute()
