@@ -50,7 +50,7 @@ def actually_cut():
 def actually_delete_file(filepath):
     """
     CAUTION
-    lpr cmdline wrapper to delete a file
+    cmdline wrapper to delete a file
     to be used for removing downloaded attachments once printed
     """
     cstr = "rm " + filepath
@@ -128,16 +128,16 @@ def email_to_fax(email, service, msg_id):
             subject = d['value']
         if d['name'] == 'From':
             sender = d['value']
-
-    # The Body of the message is in Encrypted format. So, we have to decode it.
-    # Get the data and decode it with base 64 decoder.
-
+            
     messages, attachments = process_email_part(payload, [], [], service, msg_id)
 
     message = ""
 
     for data in messages:
         data = data.replace("-", "+").replace("_", "/")
+
+        # The Body of the message is in Encrypted format. So, we have to decode it.
+        # Get the data and decode it with base 64 decoder.
         decoded_data = base64.b64decode(data)
 
         # Now, the data obtained is in lxml. So, we will parse
