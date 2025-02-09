@@ -26,18 +26,40 @@ MMMMMMMMMMMM                                     MMMMMMMMMMMM
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
 def actually_print_text(msg, cpi, lpi):
+    """
+    lpr cmdline wrapper to actually print an text
+    with a specified size.
+    """
     cstr = "echo '" + msg + "' | lpr" + " -o cpi=" + str(cpi) + " -o lpi=" + str(lpi) + " -o DocCutType=0NoCutDoc"
     os.system(cstr)
 
 def actually_print_image(path_to_img):
+    """
+    lpr cmdline wrapper to actually print an image
+    """
     cstr = "lp -o fit-to-page -o DocCutType=0NoCutDoc " + path_to_img
     os.system(cstr)
 
 def actually_cut():
+    """
+    lpr cmdline wrapper to actually cut the receipt printer to denote the end of a fax
+    """
     cstr = 'echo "" | lpr'
     os.system(cstr)
 
+def actually_delete_file(filepath):
+    """
+    CAUTION
+    lpr cmdline wrapper to delete a file
+    to be used for removing downloaded attachments once printed
+    """
+    cstr = "rm " + filepath
+    os.system(cstr)
+
 def actually_print_fax(fax):
+    """
+    lpr cmdline wrapper to actually print a fax
+    """
     actually_print_text(fax["subject"] + "\n", 3, 3)
     actually_print_text(fax["sender"]  + "\n", 3, 3)
     actually_print_text(fax["message"] + "\n", 3, 3)
@@ -50,14 +72,21 @@ def actually_print_fax(fax):
     for attachment in fax["attachments"]:
         if attachment["type"] == "image":
             actually_print_image(attachment["filename"])
-            # todo delete attachment
+            actually_delete_file(attachment["filename"])
 
 def import_whitelist():
+    """
+    retrieve the list of senders we want to look for unread messages from
+    to actually print.
+    """
     with open('sender_whitelist.json', 'r') as file:
         data = json.load(file)
     return data["senders"]
 
 def process_email_part(payload, messages, attachments, service, msg_id):
+    """
+    extract the text/attachment from a component of an email
+    """
     main_type, sub_type = payload['mimeType'].split('/')
     if main_type == "multipart":
         parts = payload.get('parts')
@@ -72,9 +101,11 @@ def process_email_part(payload, messages, attachments, service, msg_id):
         image_data = att['data']
         decoded_image_data = base64.urlsafe_b64decode(image_data.encode('UTF-8'))
         path = ''.join(["attachments/", payload['filename']])
+        if not os.path.exists("attachments/"):
+            os.makedirs("attachments/")
         with open(path, 'wb') as f:
-           f.write(decoded_image_data)
-           f.close()
+            f.write(decoded_image_data)
+            f.close()
 
         attachments.append({"filename": path, "type" : main_type })
     else:
@@ -83,8 +114,12 @@ def process_email_part(payload, messages, attachments, service, msg_id):
 
     return messages, attachments
 
-def email_to_fax(txt, service, msg_id):
-    payload = txt['payload']
+def email_to_fax(email, service, msg_id):
+    """
+    Extract the relevant data from an email message returned from the gmail api into a
+    dictionary that we can use to print as a fax.
+    """
+    payload = email['payload']
     headers = payload['headers']
 
     # Look for Subject and Sender Email in the headers
@@ -108,25 +143,23 @@ def email_to_fax(txt, service, msg_id):
         # Now, the data obtained is in lxml. So, we will parse
         # it with BeautifulSoup library
         soup = BeautifulSoup(decoded_data, "lxml")
-        body = str(soup.body())
+        body = str(soup.get_text('\n'))
         body = body.replace("'", "`") # this is to prevent ' escaping the print command
         message += body
 
-    fax = { 
+    fax = {
         "subject"     : str(subject),
         "sender"      : str(str(sender).split(' <')[0]),
         "message"     : message,
         "attachments" : attachments
     }
+
     return fax
 
-def main():
+def auth_gmail_api():
     """
-    Shows basic usage of the Gmail API.
-    Lists the user's Gmail labels.
+    returns a authed service that can be used to interact with the gmail api
     """
-
-    # todo break out into a gmail auth func
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -150,19 +183,15 @@ def main():
 
     # Call the Gmail API
     service = build("gmail", "v1", credentials=creds)
+    return service
 
-    senderWhitelist = import_whitelist()
-
-    if len(senderWhitelist) == 0:
-        print("sender_whitlist.json is empty")
-        return 0
-
-    print(splash)
-    print("Checking for faxing at: ", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-
+def get_faxes(service, sender_whitelist):
+    """
+    Collect any faxes to be printed
+    """
     faxes = []
 
-    for wSender in senderWhitelist:
+    for wSender in sender_whitelist:
         result = service.users().messages().list(userId="me",labelIds=['INBOX'], q="is:unread from:"+wSender).execute()
         messages = result.get('messages')
 
@@ -185,6 +214,27 @@ def main():
                 print("Error", e)
                 pass
 
+    return faxes
+
+def main():
+    """
+    Connect to gmail API and prints any unread emails from senders
+    that are specified in the senders_whitelist.json file
+    """
+
+    service = auth_gmail_api()
+
+    sender_whitelist = import_whitelist()
+
+    if len(sender_whitelist) == 0:
+        print("sender_whitlist.json is empty")
+        return 0
+
+    print(splash)
+    print("Checking for faxing at: ", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+    faxes = get_faxes(service, sender_whitelist)
+
     if len(faxes) > 0:
         print("Found " + str(len(faxes)) + " Faxes!")
 
@@ -194,8 +244,8 @@ def main():
         actually_print_text(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 3 , 3)
 
         for fax in faxes:
-             pprint(fax)
-             actually_print_fax(fax)
+            pprint(fax)
+            actually_print_fax(fax)
 
         actually_cut()
         print("Done faxing.")
