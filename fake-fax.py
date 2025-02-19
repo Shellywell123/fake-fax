@@ -35,7 +35,7 @@ def actually_print_text(msg, cpi, lpi):
 
 def actually_print_image(path_to_img):
     """
-    lpr cmdline wrapper to actually print an image
+    lpr cmdline wrapper to actually print a image
     """
     cstr = "lp -o fit-to-page -o DocCutType=0NoCutDoc " + path_to_img
     os.system(cstr)
