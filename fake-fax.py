@@ -106,8 +106,9 @@ def process_email_part(payload, messages, attachments, service, msg_id):
         with open(path, 'wb') as f:
             f.write(decoded_image_data)
             f.close()
-
         attachments.append({"filename": path, "type" : main_type })
+    elif main_type == "application":
+        attachments.append({"filename": payload["filename"], "type" : main_type })
     else:
         print("unkown mimetype: ", main_type)
         attachments.append({"filename": payload["filename"], "type" : main_type })
