@@ -47,6 +47,14 @@ def actually_cut():
     cstr = 'echo "" | lpr'
     os.system(cstr)
 
+def log_to_file(msg):
+    """
+    log to a file
+    """
+    with open("log.txt", "a") as f:
+        f.write(msg + "\n")
+        f.close()
+
 def actually_delete_file(filepath):
     """
     CAUTION
@@ -238,6 +246,7 @@ def main():
 
     if len(faxes) > 0:
         print("Found " + str(len(faxes)) + " Faxes!")
+        log_to_file(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 3 , 3, "Found " + str(len(faxes)) + " Faxes!")
 
         for line in splash.split('\n'):
             actually_print_text(line.replace("'","`"), 10, 10)
@@ -253,6 +262,7 @@ def main():
 
     else:
         print("No faxes at this time.")
+        log_to_file(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 3 , 3, "No faxes at this time.")
 
 if __name__ == "__main__":
     main()
