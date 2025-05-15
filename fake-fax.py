@@ -137,7 +137,7 @@ def email_to_fax(email, service, msg_id):
             subject = d['value']
         if d['name'] == 'From':
             sender = d['value']
-            
+
     messages, attachments = process_email_part(payload, [], [], service, msg_id)
 
     message = ""
@@ -246,7 +246,7 @@ def main():
 
     if len(faxes) > 0:
         print("Found " + str(len(faxes)) + " Faxes!")
-        log_to_file(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 3 , 3, "Found " + str(len(faxes)) + " Faxes!")
+        log_to_file(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Found {str(len(faxes))} Faxes!")
 
         for line in splash.split('\n'):
             actually_print_text(line.replace("'","`"), 10, 10)
@@ -262,7 +262,7 @@ def main():
 
     else:
         print("No faxes at this time.")
-        log_to_file(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 3 , 3, "No faxes at this time.")
+        log_to_file(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} No faxes at this time.")
 
 if __name__ == "__main__":
     main()
