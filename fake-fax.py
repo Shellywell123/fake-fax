@@ -78,6 +78,7 @@ def actually_print_fax(fax):
 
     actually_print_text("Attachments :\n", 3, 3)
     for attachment in fax["attachments"]:
+        actually_print_text(attachment["filename"],6 ,6)
         if attachment["type"] == "image":
             actually_print_image(attachment["filename"])
             actually_delete_file(attachment["filename"])
@@ -96,6 +97,7 @@ def process_email_part(payload, messages, attachments, service, msg_id):
     extract the text/attachment from a component of an email
     """
     main_type, sub_type = payload['mimeType'].split('/')
+
     if main_type == "multipart":
         parts = payload.get('parts')
         for part in parts:
@@ -108,7 +110,7 @@ def process_email_part(payload, messages, attachments, service, msg_id):
         att = service.users().messages().attachments().get(userId="me", messageId=msg_id, id=payload['body']['attachmentId']).execute()
         image_data = att['data']
         decoded_image_data = base64.urlsafe_b64decode(image_data.encode('UTF-8'))
-        path = ''.join(["attachments/", payload['filename']])
+        path = ''.join(["attachments/", payload['filename'].replace(' ','_')])
         if not os.path.exists("attachments/"):
             os.makedirs("attachments/")
         with open(path, 'wb') as f:
@@ -116,7 +118,19 @@ def process_email_part(payload, messages, attachments, service, msg_id):
             f.close()
         attachments.append({"filename": path, "type" : main_type })
     elif main_type == "application":
-        attachments.append({"filename": payload["filename"], "type" : main_type })
+        if sub_type == "pdf":
+            att = service.users().messages().attachments().get(userId="me", messageId=msg_id, id=payload['body']['attachmentId']).execute()
+            image_data = att['data']
+            decoded_image_data = base64.urlsafe_b64decode(image_data.encode('UTF-8'))
+            path = ''.join(["attachments/", payload['filename'].replace(' ','_')])
+            if not os.path.exists("attachments/"):
+                os.makedirs("attachments/")
+            with open(path, 'wb') as f:
+                f.write(decoded_image_data)
+                f.close()
+            attachments.append({"filename": path, "type" : "image" })
+        else:
+            attachments.append({"filename": payload["filename"], "type" : main_type })
     else:
         print("unkown mimetype: ", main_type)
         attachments.append({"filename": payload["filename"], "type" : main_type })
@@ -245,8 +259,8 @@ def main():
     faxes = get_faxes(service, sender_whitelist)
 
     if len(faxes) > 0:
-        print("Found " + str(len(faxes)) + " Faxes!")
-        log_to_file(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Found {str(len(faxes))} Faxes!")
+        print("Recieved " + str(len(faxes)) + " Faxes!")
+        log_to_file(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Recieved {str(len(faxes))} Faxes!")
 
         for line in splash.split('\n'):
             actually_print_text(line.replace("'","`"), 10, 10)
