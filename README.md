@@ -22,7 +22,7 @@ Using the gmail api we can check unread emails from specific senders and then pr
 ```
 sudo apt install cups
 ```
-5. Install Drivers for your printer ([Drivers or Mine](https://cosroe.com/2024/05/star-tsp-100.html))
+5. Install Drivers for your printer ([Drivers For Mine](https://cosroe.com/2024/05/star-tsp-100.html))
 6. Set gmail sender whitelist (who's unread emails to print)
 ```
 echo '{"senders": ["some@email.com"]}' > sender_whitelist.json
